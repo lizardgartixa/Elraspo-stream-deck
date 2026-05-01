@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Stream Deck</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;700&family=Share+Tech+Mono&display=swap');
+
+  :root {
+    --bg: #0a0a0f;
+    --surface: #13131a;
+    --border: #1e1e2e;
+    --accent: #00f0ff;
+    --accent2: #ff2d6b;
+    --text: #e0e0f0;
+    --text-dim: #555570;
+    --radius: 14px;
+    --gap: 16px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    width: 100%; height: 100%;
+    background: var(--bg);
+    overflow: hidden;
+    font-family: 'Rajdhani', sans-serif;
+  }
+
+  /* scan-line atmosphere */
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0,240,255,0.015) 2px,
+      rgba(0,240,255,0.015) 4px
+    );
+    pointer-events: none;
+    z-index: 100;
+  }
+
+  #deck {
+    display: grid;
+    width: 100vw;
+    height: 100vh;
+    padding: 20px;
+    gap: var(--gap);
+  }
+
+  .btn {
+    position: relative;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--text);
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    overflow: hidden;
+    transition: transform 0.08s, border-color 0.15s, box-shadow 0.15s;
+    -webkit-tap-highlight-color: transparent;
+    user-select: none;
+  }
+
+  .btn::before {
+    content: '';
+    position: absolute; inset: 0;
+    background: var(--btn-color, #222);
+    opacity: 0.18;
+    border-radius: inherit;
+    transition: opacity 0.15s;
+  }
+
+  .btn::after {
+    content: '';
+    position: absolute; inset: 0;
+    border-radius: inherit;
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,0.04);
+  }
+
+  .btn:hover { border-color: rgba(0,240,255,0.3); }
+
+  .btn:active, .btn.pressed {
+    transform: scale(0.94);
+    border-color: var(--accent);
+    box-shadow: 0 0 18px rgba(0,240,255,0.25);
+  }
+
+  .btn:active::before, .btn.pressed::before { opacity: 0.35; }
+
+  /* ── success flash ── */
+  .btn.flash-ok::before {
+    background: var(--btn-color, #00ff88);
+    opacity: 0.6;
+    transition: opacity 0s;
+  }
+  .btn.flash-ok {
+    border-color: #00ff88;
+    box-shadow: 0 0 24px rgba(0,255,136,0.4);
+    transition: border-color 0s, box-shadow 0s;
+  }
+
+  /* ── error flash ── */
+  .btn.flash-err::before {
+    background: #ff2d6b;
+    opacity: 0.5;
+    transition: opacity 0s;
+  }
+  .btn.flash-err {
+    border-color: #ff2d6b;
+    box-shadow: 0 0 24px rgba(255,45,107,0.4);
+    transition: border-color 0s, box-shadow 0s;
+  }
+
+  .btn .icon {
+    font-size: clamp(22px, 5vw, 38px);
+    line-height: 1;
+    z-index: 1;
+  }
+
+  .btn .label {
+    font-size: clamp(14px, 3vw, 22px);
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    z-index: 1;
+    text-align: center;
+    padding: 0 6px;
+  }
+
+  /* ripple */
+  .ripple {
+    position: absolute;
+    border-radius: 50%;
+    background: rgba(0,240,255,0.25);
+    transform: scale(0);
+    animation: ripple-out 0.45s ease-out forwards;
+    pointer-events: none;
+  }
+  @keyframes ripple-out {
+    to { transform: scale(4); opacity: 0; }
+  }
+
+  /* toast */
+  #toast {
+    position: fixed;
+    bottom: 18px; left: 50%;
+    transform: translateX(-50%) translateY(60px);
+    background: var(--surface);
+    border: 1px solid var(--accent);
+    color: var(--accent);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 13px;
+    padding: 8px 18px;
+    border-radius: 8px;
+    white-space: nowrap;
+    transition: transform 0.25s, opacity 0.25s;
+    opacity: 0;
+    z-index: 200;
+    box-shadow: 0 0 20px rgba(0,240,255,0.2);
+  }
+  #toast.show {
+    transform: translateX(-50%) translateY(0);
+    opacity: 1;
+  }
+
+  /* status dot */
+  #status {
+    position: fixed;
+    top: 10px; right: 12px;
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--text-dim);
+    z-index: 200;
+    transition: background 0.3s;
+  }
+  #status.ok  { background: #00ff88; box-shadow: 0 0 8px #00ff88; }
+  #status.err { background: var(--accent2); box-shadow: 0 0 8px var(--accent2); }
+
+  /* ── screensaver ── */
+  #screensaver {
+    position: fixed; inset: 0;
+    background: #000;
+    z-index: 500;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease;
+  }
+  #screensaver.active {
+    opacity: 1;
+    pointer-events: all;
+  }
+</style>
+</head>
+<body>
+<div id="status"></div>
+<div id="deck"></div>
+<div id="toast"></div>
+<div id="screensaver"></div>
+
+<script>
+const deck        = document.getElementById('deck');
+const toast       = document.getElementById('toast');
+const status      = document.getElementById('status');
+const screensaver = document.getElementById('screensaver');
+let toastTimer;
+
+// ── screensaver ────────────────────────────────────────────────────────
+const IDLE_MS = 30 * 1000; // 30 seconds
+let idleTimer;
+let isAsleep  = false;
+let isWaking  = false; // true during the xrandr warm-up; blocks button actions
+
+function wake() {
+  if (isAsleep) {
+    isAsleep = false;
+    isWaking = true; // block actions until the screen is actually visible
+
+    // 1. Turn the display backlight/output on immediately
+    fetch('/api/display', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({state: 'on'})
+    });
+    // 2. Wait for xrandr to fully re-enable the output before revealing the UI.
+    //    Without this delay the browser paints into a blank framebuffer and
+    //    the screen stays white/blank until xrandr settles (~1-2 s).
+    setTimeout(() => {
+      screensaver.classList.remove('active');
+      isWaking = false;
+    }, 300);
+  }
+  resetIdle();
+}
+
+function sleep() {
+  isAsleep = true;
+  screensaver.classList.add('active');
+  // small delay so the black screen renders before backlight cuts
+  setTimeout(() => {
+    fetch('/api/display', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({state: 'off'})
+    });
+  }, 800);
+}
+
+function resetIdle() {
+  clearTimeout(idleTimer);
+  idleTimer = setTimeout(sleep, IDLE_MS);
+}
+
+screensaver.addEventListener('touchstart', e => { e.stopPropagation(); wake(); }, true);
+screensaver.addEventListener('click',      e => { e.stopPropagation(); wake(); }, true);
+document.addEventListener('touchstart', () => { if (!isAsleep) resetIdle(); });
+document.addEventListener('click',      () => { if (!isAsleep) resetIdle(); });
+
+resetIdle();
+
+// ── toast ──────────────────────────────────────────────────────────────
+function showToast(msg, isErr) {
+  toast.textContent = msg;
+  toast.style.borderColor = isErr ? 'var(--accent2)' : 'var(--accent)';
+  toast.style.color = isErr ? 'var(--accent2)' : 'var(--accent)';
+  toast.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => toast.classList.remove('show'), 1800);
+}
+
+// ── ripple ─────────────────────────────────────────────────────────────
+function addRipple(el, e) {
+  const r = document.createElement('span');
+  r.className = 'ripple';
+  const rect = el.getBoundingClientRect();
+  const size = Math.max(rect.width, rect.height);
+  const x = (e.clientX ?? rect.left + rect.width/2) - rect.left - size/2;
+  const y = (e.clientY ?? rect.top  + rect.height/2) - rect.top  - size/2;
+  r.style.cssText = `width:${size}px;height:${size}px;left:${x}px;top:${y}px`;
+  el.appendChild(r);
+  r.addEventListener('animationend', () => r.remove());
+}
+
+// ── button flash confirmation ──────────────────────────────────────────
+function flashBtn(el, success) {
+  const cls = success ? 'flash-ok' : 'flash-err';
+  el.classList.remove('pressed');
+  el.classList.add(cls);
+  setTimeout(() => {
+    el.classList.remove(cls);
+  }, 400);
+}
+
+// ── action ─────────────────────────────────────────────────────────────
+async function fireAction(btn, el, e) {
+  if (isAsleep || isWaking) return; // asleep: wake handles it; waking: screen not visible yet
+  addRipple(el, e);
+  el.classList.add('pressed');
+  try {
+    const res = await fetch('/api/action', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({action: btn.action, value: btn.value})
+    });
+    const data = await res.json();
+    if (data.status === 'ok') {
+      status.className = 'ok';
+      flashBtn(el, true);
+      showToast(`✓ ${btn.label}`);
+    } else {
+      status.className = 'err';
+      flashBtn(el, false);
+      showToast(`✗ ${data.message || 'Error'}`, true);
+    }
+  } catch(err) {
+    status.className = 'err';
+    flashBtn(el, false);
+    showToast('✗ Connection lost', true);
+  }
+}
+
+// ── render ─────────────────────────────────────────────────────────────
+async function renderDeck() {
+  const layout = await fetch('/api/layout').then(r => r.json());
+  deck.style.gridTemplateColumns = `repeat(${layout.cols}, 1fr)`;
+  deck.style.gridTemplateRows    = `repeat(${layout.rows}, 1fr)`;
+  deck.innerHTML = '';
+
+  layout.buttons.forEach(btn => {
+    const el = document.createElement('div');
+    el.className = 'btn';
+    el.style.setProperty('--btn-color', btn.color || '#222');
+    el.style.gridColumn = `${btn.col + 1}`;
+    el.style.gridRow    = `${btn.row + 1}`;
+    el.innerHTML = `
+      <span class="icon">${btn.icon || '⚡'}</span>
+      <span class="label">${btn.label}</span>
+    `;
+    el.addEventListener('click', e => fireAction(btn, el, e));
+    deck.appendChild(el);
+  });
+
+  status.className = 'ok';
+}
+
+renderDeck();
+
+// ── SSE reload ─────────────────────────────────────────────────────────
+const evtSource = new EventSource('/api/events');
+evtSource.onmessage = e => { if (e.data === 'reload') renderDeck(); };
+evtSource.onerror = () => setTimeout(() => location.reload(), 3000);
+</script>
+</body>
+</html>
