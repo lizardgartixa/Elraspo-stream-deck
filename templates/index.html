@@ -232,10 +232,8 @@ function wake() {
     // 2. Wait for xrandr to fully re-enable the output before revealing the UI.
     //    Without this delay the browser paints into a blank framebuffer and
     //    the screen stays white/blank until xrandr settles (~1-2 s).
-    setTimeout(() => {
-      screensaver.classList.remove('active');
-      isWaking = false;
-    }, 300);
+    setTimeout(() => { screensaver.classList.remove('active'); }, 300);
+    setTimeout(() => { isWaking = false; }, 800);
   }
   resetIdle();
 }
@@ -258,8 +256,8 @@ function resetIdle() {
   idleTimer = setTimeout(sleep, IDLE_MS);
 }
 
-screensaver.addEventListener('touchstart', e => { e.stopPropagation(); wake(); }, true);
-screensaver.addEventListener('click',      e => { e.stopPropagation(); wake(); }, true);
+screensaver.addEventListener('touchstart', e => { e.preventDefault(); e.stopPropagation(); wake(); }, { capture: true, passive: false });
+screensaver.addEventListener('click',      e => { e.preventDefault(); e.stopPropagation(); wake(); }, true);
 document.addEventListener('touchstart', () => { if (!isAsleep) resetIdle(); });
 document.addEventListener('click',      () => { if (!isAsleep) resetIdle(); });
 
