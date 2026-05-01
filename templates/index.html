@@ -346,11 +346,21 @@ async function renderDeck() {
     el.addEventListener('click', e => fireAction(btn, el, e));
     deck.appendChild(el);
   });
-
-  status.className = 'ok';
 }
 
-renderDeck();
+// ── OBS status check ───────────────────────────────────────────────────
+async function checkObs() {
+  try {
+    const res = await fetch('/api/obs/scenes');
+    const d = await res.json();
+    status.className = (!res.ok || d.error) ? 'err' : 'ok';
+  } catch {
+    status.className = 'err';
+  }
+}
+
+renderDeck().then(checkObs);
+setInterval(checkObs, 10_000);
 
 // ── SSE reload ─────────────────────────────────────────────────────────
 const evtSource = new EventSource('/api/events');

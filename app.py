@@ -35,18 +35,29 @@ HA_TOKEN = os.environ.get("HA_TOKEN", "")
 LAYOUT_FILE = os.path.join(os.path.dirname(__file__), "layout.json")
 
 # ── OBS connection with auto-reconnect ─────────────────────────────────
-ws = obsws(OBS_IP, OBS_PORT, OBS_PASSWORD)
+ws = None
 obs_connected = False
 
 def connect_obs():
     global ws, obs_connected
     while True:
         try:
-            ws = obsws(OBS_IP, OBS_PORT, OBS_PASSWORD)
-            ws.connect()
+            new_ws = obsws(OBS_IP, OBS_PORT, OBS_PASSWORD)
+            new_ws.connect()
+            ws = new_ws
             obs_connected = True
             print("OBS connected")
-            break
+
+            # Poll to detect disconnection
+            while True:
+                time.sleep(5)
+                try:
+                    ws.call(obsrequests.GetVersion())
+                except Exception:
+                    print("OBS disconnected. Reconnecting...")
+                    obs_connected = False
+                    break
+
         except Exception as e:
             print(f"OBS connection failed: {e}. Retrying in 5s...")
             obs_connected = False
@@ -174,13 +185,13 @@ def action():
 @app.route("/api/obs/scenes", methods=["GET"])
 def get_scenes():
     if not obs_connected:
-        return jsonify({"scenes": []})
+        return jsonify({"scenes": [], "error": "OBS not connected"}), 503  # ← add error + 503
     try:
         resp   = ws.call(obsrequests.GetSceneList())
         scenes = [s["sceneName"] for s in resp.getScenes()]
         return jsonify({"scenes": scenes})
     except Exception as e:
-        return jsonify({"scenes": [], "error": str(e)})
+        return jsonify({"scenes": [], "error": str(e)}), 503
 
 @app.route("/api/obs/inputs", methods=["GET"])
 def get_inputs():
