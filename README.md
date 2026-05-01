@@ -29,7 +29,7 @@ Controls **OBS Studio** via WebSocket and **Home Assistant** via its REST API â€
 | Raspberry Pi Touch Display 2 (7") | Connected via DSI ribbon cable |
 | microSD card (16 GB+) | Class 10 / A1 recommended |
 | USB-C power supply (5V 3A) | Official Pi PSU recommended |
-| Case (optional) | Any case that exposes the DSI display | I used this one: https://www.thingiverse.com/thing:7095324/files
+| Case (optional) | Any case that exposes the DSI display - I used this one: https://www.thingiverse.com/thing:7095324/files | 
 
 
 
